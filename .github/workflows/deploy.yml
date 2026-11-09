@@ -1,0 +1,168 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to deploy (branch, tag, or SHA)
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  checks: read
+  actions: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Resolve target ref
+        id: target
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_REF:-}" ]; then
+            echo "ref=${INPUT_REF}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${GITHUB_REF}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.target.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Record SHA
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Require CI success on this SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          set -euo pipefail
+          echo "Waiting for CI success on ${SHA}"
+          deadline=$((SECONDS + 900))
+          while (( SECONDS < deadline )); do
+            # Prefer check-runs from the CI workflow jobs (api, web, docker).
+            mapfile -t runs < <(
+              gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/check-runs" --paginate \
+                --jq '.check_runs[] | select(.name=="api" or .name=="web" or .name=="docker") | [.name,.status,.conclusion] | @tsv'
+            )
+            if ((${#runs[@]} == 0)); then
+              echo "No CI check-runs yet; sleeping..."
+              sleep 15
+              continue
+            fi
+            pending=0
+            failed=0
+            for line in "${runs[@]}"; do
+              name="${line%%$'\t'*}"
+              rest="${line#*$'\t'}"
+              status="${rest%%$'\t'*}"
+              conclusion="${rest#*$'\t'}"
+              echo "check ${name}: status=${status} conclusion=${conclusion}"
+              if [ "$status" != "completed" ]; then
+                pending=1
+              elif [ "$conclusion" != "success" ]; then
+                failed=1
+              fi
+            done
+            if (( failed )); then
+              echo "CI failed on ${SHA}; refusing to deploy"
+              exit 1
+            fi
+            if (( pending == 0 )); then
+              echo "CI succeeded on ${SHA}"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Timed out waiting for CI on ${SHA}"
+          exit 1
+
+      - name: Prepare SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy over SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            DEPLOY_PATH="$DEPLOY_PATH" SHA="$SHA" \
+            bash -s <<'REMOTE'
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          state_dir="${DEPLOY_PATH}/.deploy"
+          mkdir -p "$state_dir"
+          prev_file="${state_dir}/current_sha"
+          prev=""
+          if [ -f "$prev_file" ]; then
+            prev="$(cat "$prev_file")"
+          fi
+          echo "Previous SHA: ${prev:-none}"
+          echo "Target SHA:   ${SHA}"
+
+          git fetch --tags origin
+          git checkout --detach "$SHA"
+
+          if ! docker compose up -d --build; then
+            echo "compose up failed"
+            if [ -n "$prev" ] && [ "$prev" != "$SHA" ]; then
+              echo "Rolling back to ${prev}"
+              git checkout --detach "$prev"
+              docker compose up -d --build
+            fi
+            exit 1
+          fi
+
+          health_url="${DEPLOY_HEALTH_URL:-http://127.0.0.1/health}"
+          echo "Polling ${health_url}"
+          ok=0
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null "$health_url"; then
+              ok=1
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$ok" != "1" ]; then
+            echo "Health check failed"
+            if [ -n "$prev" ] && [ "$prev" != "$SHA" ]; then
+              echo "Rolling back to ${prev}"
+              git checkout --detach "$prev"
+              docker compose up -d --build
+            fi
+            exit 1
+          fi
+
+          echo "$SHA" > "$prev_file"
+          echo "Deployed ${SHA}"
+          REMOTE

@@ -9,7 +9,7 @@ const display = Fraunces({ subsets: ["latin"], variable: "--font-display" });
 const sans = Source_Sans_3({ subsets: ["latin", "latin-ext"], variable: "--font-sans" });
 const arabic = Noto_Naskh_Arabic({
   subsets: ["arabic"],
-  weight: ["500", "700"],
+  weight: ["400", "500", "700"],
   variable: "--font-arabic",
 });
 

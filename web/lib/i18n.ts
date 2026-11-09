@@ -239,6 +239,14 @@ export function t(locale: Locale, key: MessageKey): string {
   return dictionaries[locale][key] ?? dictionaries.en[key];
 }
 
+/**
+ * Locale used for dates and numbers. Arabic uses Moroccan formatting with Latin digits (0-9) so they
+ * match the page counts and the numbers inside documents.
+ */
+export function dateLocale(locale: Locale): string {
+  return locale === "ar" ? "ar-MA-u-nu-latn" : locale;
+}
+
 export function textDirection(locale: Locale): "rtl" | "ltr" {
   return locale === "ar" ? "rtl" : "ltr";
 }

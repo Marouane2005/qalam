@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { useApp } from "@/components/Providers";
+import { dateLocale } from "@/lib/i18n";
 import { api, ApiError } from "@/lib/api";
 import type { Answer, DocumentItem, DocumentText, Summary, Translation } from "@/lib/types";
 
@@ -149,7 +150,7 @@ export default function DocumentPage() {
           <p className="mt-2 text-sm text-moss">
             {languageName} · {document.page_count} {label("pages")} ·{" "}
             {label(document.status === "processing" ? "statusReading" : document.status)} ·{" "}
-            {new Date(document.created_at).toLocaleDateString(locale)}
+            {new Date(document.created_at).toLocaleDateString(dateLocale(locale))}
           </p>
         </div>
         <div className="flex gap-3">
@@ -182,7 +183,7 @@ export default function DocumentPage() {
         <section aria-label={label("text")} className="rounded-2xl border border-line bg-card p-5 shadow-sheet">
           {(text?.pages || []).map((page) => (
             <article key={page.page} id={`page-${page.page}`} className="border-b border-line/70 py-4 last:border-b-0">
-              <p className="text-xs uppercase tracking-wide text-moss">
+              <p className="text-xs uppercase tracking-wide rtl:tracking-normal text-moss">
                 {label("page")} {page.page}
               </p>
               <p dir="auto" className="mt-2 whitespace-pre-wrap leading-7">
@@ -209,11 +210,11 @@ export default function DocumentPage() {
           </div>
           {tab === "summary" ? (
             <div className="mt-5" role="tabpanel">
-              <h2 className="text-xs uppercase tracking-wide text-moss">{label("short")}</h2>
+              <h2 className="text-xs uppercase tracking-wide rtl:tracking-normal text-moss">{label("short")}</h2>
               <p dir="auto" className="mt-2 leading-7">
                 {document.summary_short || label("noSummary")}
               </p>
-              <h2 className="mt-5 text-xs uppercase tracking-wide text-moss">{label("detailed")}</h2>
+              <h2 className="mt-5 text-xs uppercase tracking-wide rtl:tracking-normal text-moss">{label("detailed")}</h2>
               <p dir="auto" className="mt-2 leading-7">
                 {document.summary_detailed || label("noSummary")}
               </p>

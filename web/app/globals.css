@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  background: #f3efe6;
+  color: #1c1915;
+}
+
+body {
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse at top, rgba(15, 94, 89, 0.07), transparent 46%),
+    linear-gradient(#f6f1e8, #efe6d8);
+}
+
+html[dir="rtl"] body {
+  font-family: var(--font-arabic), var(--font-sans), serif;
+}
+
+::selection {
+  background: #d5ebe6;
+}
+
+:focus-visible {
+  outline: 2px solid #0f5e59;
+  outline-offset: 2px;
+}

@@ -27,6 +27,18 @@ from qalam.services.usage import record_usage
 router = APIRouter(prefix="/v1", tags=["reading"])
 
 
+def _release_connection(session: Session) -> None:
+    """End the read transaction before a model call.
+
+    Model calls can take tens of seconds across retries and provider fallback.
+    Committing here returns the pooled connection, so slow LLM requests cannot
+    exhaust the database pool. Loaded rows stay usable because the session does
+    not expire them on commit.
+    """
+
+    session.commit()
+
+
 def _ready(document: Document) -> None:
     if document.status != "ready":
         raise AppError("not_ready", "The document is not ready yet.", 409)
@@ -59,8 +71,10 @@ def regenerate_summary(
     document = _require_document(session, principal, document_id)
     _ready(document)
     settings = request.app.state.settings
+    text = joined_text(document, settings.llm_input_chars)
+    _release_connection(session)
     summary = summarize_text(
-        joined_text(document, settings.llm_input_chars),
+        text,
         document.language or "unknown",
         request.app.state.llm,
         settings.llm_input_chars,
@@ -89,8 +103,10 @@ def create_translation(
     document = _require_document(session, principal, document_id)
     _ready(document)
     settings = request.app.state.settings
+    text = joined_text(document, settings.llm_input_chars)
+    _release_connection(session)
     result = translate_text(
-        joined_text(document, settings.llm_input_chars),
+        text,
         body.target_language,
         request.app.state.llm,
         settings.llm_input_chars,
@@ -188,6 +204,7 @@ def ask(
     )
     if not hits:
         raise AppError("no_context", "Those documents have no indexed text yet.", 409)
+    _release_connection(session)
     result = answer_question(body.question, hits, request.app.state.llm)
     record_usage(session, principal.workspace.id, "qa", result.completion)
     row = Question(
@@ -218,6 +235,7 @@ def extract(
     parts = [
         f"# {document.filename}\n{joined_text(document, settings.llm_input_chars)}" for document in documents
     ]
+    _release_connection(session)
     result, completion = extract_fields(
         "\n\n".join(parts),
         body.json_schema,

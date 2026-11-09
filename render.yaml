@@ -1,0 +1,36 @@
+# Render Blueprint for the free single-container deploy. See docs/HOSTING.md.
+services:
+  - type: web
+    name: qalam
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./deploy/render/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: QALAM_DATABASE_URL
+        sync: false
+      - key: QALAM_BOOTSTRAP_API_KEY
+        sync: false
+      - key: QALAM_BOOTSTRAP_EMAIL
+        value: maroozi2018@gmail.com
+      - key: QALAM_BOOTSTRAP_NAME
+        value: Marouane
+      - key: QALAM_SEED_DEMO
+        value: "1"
+      - key: QALAM_LOG_LEVEL
+        value: INFO
+      - key: QALAM_RATE_LIMIT_PER_MINUTE
+        value: "60"
+      - key: QALAM_MAX_UPLOAD_BYTES
+        value: "10485760"
+      - key: QALAM_LLM_CHAIN
+        value: inception,nvidia,openrouter,mock
+      - key: INCEPTION_API_KEY
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false

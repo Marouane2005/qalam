@@ -104,6 +104,17 @@ class Settings(BaseSettings):
     openrouter_timeout_s: float | None = Field(default=None, validation_alias="OPENROUTER_TIMEOUT_S")
     openrouter_retries: int | None = Field(default=None, validation_alias="OPENROUTER_RETRIES")
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def psycopg_driver(cls, value: Any) -> Any:
+        # Hosted Postgres providers hand out postgres:// or postgresql:// URLs.
+        # SQLAlchemy needs the psycopg driver named explicitly.
+        if isinstance(value, str):
+            for prefix in ("postgres://", "postgresql://"):
+                if value.startswith(prefix):
+                    return "postgresql+psycopg://" + value[len(prefix) :]
+        return value
+
     @field_validator(
         "inception_timeout_s",
         "inception_retries",

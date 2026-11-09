@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { useApp } from "@/components/Providers";
+import { dateLocale } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import type { DocumentItem, DocumentList } from "@/lib/types";
 
@@ -88,7 +89,7 @@ export default function LibraryPage() {
                 <h2 dir="auto" className="font-display text-2xl">
                   {item.filename}
                 </h2>
-                <p className="text-xs uppercase tracking-wide text-moss">
+                <p className="text-xs uppercase tracking-wide rtl:tracking-normal text-moss">
                   {languageLabel(item.language, label)} ·{" "}
                   {label(item.status === "processing" ? "statusReading" : item.status)}
                 </p>
@@ -97,7 +98,7 @@ export default function LibraryPage() {
                 {item.summary_short || item.error || " "}
               </p>
               <p className="mt-3 text-xs text-moss">
-                {new Date(item.created_at).toLocaleDateString(locale)} · {item.page_count} {label("pages")}
+                {new Date(item.created_at).toLocaleDateString(dateLocale(locale))} · {item.page_count} {label("pages")}
               </p>
             </Link>
           </li>

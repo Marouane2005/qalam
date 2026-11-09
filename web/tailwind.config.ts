@@ -15,8 +15,8 @@ const config: Config = {
         moss: "#5c6b4a",
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "sans-serif"],
-        display: ["var(--font-display)", "serif"],
+        sans: ["var(--font-sans)", "var(--font-arabic)", "sans-serif"],
+        display: ["var(--font-display)", "var(--font-arabic)", "serif"],
         arabic: ["var(--font-arabic)", "serif"],
       },
       boxShadow: {

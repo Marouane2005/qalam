@@ -138,13 +138,13 @@ export default function ExtractPage() {
       {result ? (
         <section className="mt-8 rounded-2xl border border-line bg-card p-5 shadow-sheet">
           <h2 className="font-display text-2xl">{label("result")}</h2>
-          <p className="mt-1 text-xs uppercase tracking-wide text-moss">
+          <p className="mt-1 text-xs uppercase tracking-wide rtl:tracking-normal text-moss">
             {label("provider")}: {result.provider}
           </p>
           <dl className="mt-4 grid gap-4 sm:grid-cols-2">
             {Object.entries(result.result).map(([key, value]) => (
               <div key={key}>
-                <dt className="text-xs uppercase tracking-wide text-moss">{key.replaceAll("_", " ")}</dt>
+                <dt className="text-xs uppercase tracking-wide rtl:tracking-normal text-moss">{key.replaceAll("_", " ")}</dt>
                 <dd dir="auto" className="mt-1 whitespace-pre-wrap leading-6">
                   {typeof value === "string" ? value || "—" : JSON.stringify(value, null, 2)}
                 </dd>

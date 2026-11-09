@@ -70,7 +70,7 @@ export default function LibraryPage() {
           {error}
         </p>
       ) : null}
-      {items === null ? <p className="mt-8 text-moss">{label("loading")}</p> : null}
+      {items === null && !error ? <p className="mt-8 text-moss">{label("loading")}</p> : null}
       {items && visible.length === 0 ? (
         <div className="mt-10 rounded-2xl border border-dashed border-line bg-card/70 px-6 py-12">
           <h2 className="font-display text-2xl">{items.length === 0 ? label("emptyTitle") : label("nothingMatched")}</h2>
@@ -82,7 +82,7 @@ export default function LibraryPage() {
           <li key={item.id}>
             <Link
               href={`/documents/${item.id}`}
-              className="block rounded-2xl border border-line bg-card px-5 py-4 shadow-sheet transition hover:-translate-y-0.5"
+              className="block rounded-2xl border border-line bg-card px-5 py-4 shadow-sheet transition hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-3">
                 <h2 dir="auto" className="font-display text-2xl">

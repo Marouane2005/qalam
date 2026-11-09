@@ -11,6 +11,7 @@ import type { Answer, DocumentItem, DocumentText, Summary, Translation } from "@
 type Tab = "summary" | "translation" | "ask";
 
 const TARGETS = ["ar", "fr", "en"] as const;
+const TABS: readonly Tab[] = ["summary", "translation", "ask"];
 
 export default function DocumentPage() {
   const params = useParams<{ id: string }>();
@@ -115,14 +116,39 @@ export default function DocumentPage() {
 
   async function remove() {
     if (!window.confirm(label("confirmDelete"))) return;
-    await api<void>(`/v1/documents/${id}`, apiKey, { method: "DELETE" });
-    router.push("/");
+    setError("");
+    try {
+      await api<void>(`/v1/documents/${id}`, apiKey, { method: "DELETE" });
+      router.push("/");
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : label("error"));
+    }
   }
 
   async function reprocess() {
     setError("");
-    const updated = await api<DocumentItem>(`/v1/documents/${id}/reprocess`, apiKey, { method: "POST" });
-    setDocument(updated);
+    try {
+      const updated = await api<DocumentItem>(`/v1/documents/${id}/reprocess`, apiKey, { method: "POST" });
+      setDocument(updated);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : label("error"));
+    }
+  }
+
+  function onTabKey(event: React.KeyboardEvent<HTMLButtonElement>) {
+    const index = TABS.indexOf(tab);
+    // In RTL the visual order is mirrored, so the left arrow moves forward.
+    const rtl = getComputedStyle(event.currentTarget).direction === "rtl";
+    let next: number | null = null;
+    if (event.key === "ArrowRight") next = rtl ? index - 1 : index + 1;
+    else if (event.key === "ArrowLeft") next = rtl ? index + 1 : index - 1;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = TABS.length - 1;
+    if (next === null) return;
+    event.preventDefault();
+    const target = TABS[(next + TABS.length) % TABS.length];
+    setTab(target);
+    window.document.getElementById(`tab-${target}`)?.focus();
   }
 
   if (!document) {
@@ -193,14 +219,18 @@ export default function DocumentPage() {
           {!text?.pages.length ? <p className="text-moss">{label("noSummary")}</p> : null}
         </section>
         <section className="rounded-2xl border border-line bg-card p-5 shadow-sheet">
-          <div className="flex gap-2" role="tablist">
-            {(["summary", "translation", "ask"] as const).map((item) => (
+          <div className="flex gap-2" role="tablist" aria-label={label("documentTools")}>
+            {TABS.map((item) => (
               <button
                 key={item}
+                id={`tab-${item}`}
                 type="button"
                 role="tab"
                 aria-selected={tab === item}
+                aria-controls={`panel-${item}`}
+                tabIndex={tab === item ? 0 : -1}
                 onClick={() => setTab(item)}
+                onKeyDown={onTabKey}
                 className={`rounded-full px-3 py-1 text-sm ${tab === item ? "bg-ink text-card" : "bg-paper"}`}
               >
                 {label(item)}
@@ -208,7 +238,7 @@ export default function DocumentPage() {
             ))}
           </div>
           {tab === "summary" ? (
-            <div className="mt-5" role="tabpanel">
+            <div className="mt-5" role="tabpanel" id="panel-summary" aria-labelledby="tab-summary" tabIndex={0}>
               <h2 className="text-xs uppercase tracking-wide text-moss">{label("short")}</h2>
               <p dir="auto" className="mt-2 leading-7">
                 {document.summary_short || label("noSummary")}
@@ -228,7 +258,7 @@ export default function DocumentPage() {
             </div>
           ) : null}
           {tab === "translation" ? (
-            <div className="mt-5" role="tabpanel">
+            <div className="mt-5" role="tabpanel" id="panel-translation" aria-labelledby="tab-translation" tabIndex={0}>
               <label htmlFor="target-language" className="text-sm">
                 {label("target")}
               </label>
@@ -265,7 +295,7 @@ export default function DocumentPage() {
             </div>
           ) : null}
           {tab === "ask" ? (
-            <div className="mt-5" role="tabpanel">
+            <div className="mt-5" role="tabpanel" id="panel-ask" aria-labelledby="tab-ask" tabIndex={0}>
               {history.length === 0 ? <p className="text-sm text-moss">{label("chatEmpty")}</p> : null}
               <ol className="grid gap-4">
                 {history.map((item) => (

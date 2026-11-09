@@ -7,7 +7,7 @@ import { useApp } from "@/components/Providers";
 import { api, ApiError } from "@/lib/api";
 import type { DocumentItem } from "@/lib/types";
 
-type Row = { name: string; id?: string; error?: string };
+type Row = { key: string; name: string; id?: string; error?: string };
 
 export default function UploadPage() {
   const { apiKey, label } = useApp();
@@ -24,9 +24,10 @@ export default function UploadPage() {
       body.set("file", file);
       try {
         const document = await api<DocumentItem>("/v1/documents", apiKey, { method: "POST", body });
-        next.push({ name: file.name, id: document.id });
+        next.push({ key: document.id, name: file.name, id: document.id });
       } catch (error) {
         next.push({
+          key: `${file.name}-${Date.now()}-${next.length}`,
           name: file.name,
           error: error instanceof ApiError ? error.message : label("error"),
         });
@@ -51,12 +52,12 @@ export default function UploadPage() {
           setOver(false);
           void send(Array.from(event.dataTransfer.files));
         }}
-        className={`mt-8 flex cursor-pointer flex-col items-center rounded-2xl border border-dashed px-6 py-16 text-center ${
+        className={`mt-8 flex cursor-pointer flex-col items-center rounded-2xl border border-dashed px-6 py-16 text-center focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-tide ${
           over ? "border-tide bg-card" : "border-line bg-card/60"
         }`}
       >
         <span className="font-display text-3xl">{label("dropTitle")}</span>
-        <span className="mt-2 text-sm text-moss">{busy ? label("uploading") : label("browse")}</span>
+        <span className="mt-2 text-sm text-moss" role="status">{busy ? label("uploading") : label("browse")}</span>
         <input
           type="file"
           className="sr-only"
@@ -71,7 +72,7 @@ export default function UploadPage() {
       </label>
       <ul className="mt-6 grid gap-3">
         {rows.map((row) => (
-          <li key={`${row.name}-${row.id || row.error}`} className="rounded-xl border border-line bg-card px-4 py-3">
+          <li key={row.key} className="rounded-xl border border-line bg-card px-4 py-3">
             <p dir="auto">{row.name}</p>
             {row.id ? (
               <Link href={`/documents/${row.id}`} className="text-sm text-tide underline-offset-2 hover:underline">

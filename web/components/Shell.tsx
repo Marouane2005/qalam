@@ -31,13 +31,14 @@ function Mark() {
 }
 
 function LanguageSwitcher() {
-  const { locale, setLocale } = useApp();
+  const { locale, setLocale, label } = useApp();
   return (
-    <div className="flex rounded-full border border-line bg-card p-0.5" role="group" aria-label="Language">
+    <div className="flex rounded-full border border-line bg-card p-0.5" role="group" aria-label={label("language")}>
       {LOCALES.map((item) => (
         <button
           key={item.id}
           type="button"
+          lang={item.id}
           aria-pressed={locale === item.id}
           onClick={() => setLocale(item.id)}
           className={`rounded-full px-2.5 py-1 text-sm ${
@@ -141,7 +142,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Mark />
             <span className="font-display text-2xl leading-none">{label("pen")}</span>
           </Link>
-          <nav className="flex flex-wrap gap-1" aria-label="Primary">
+          <nav className="flex flex-wrap gap-1" aria-label={label("primaryNav")}>
             {LINKS.map((link) => {
               const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
               return (

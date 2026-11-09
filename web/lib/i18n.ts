@@ -75,6 +75,9 @@ const en = {
   text: "Text",
   uploadAnother: "Upload another",
   savedLocally: "Stored only in this browser.",
+  language: "Language",
+  primaryNav: "Main",
+  documentTools: "Document tools",
 };
 
 const fr: Record<keyof typeof en, string> = {
@@ -152,6 +155,9 @@ const fr: Record<keyof typeof en, string> = {
   text: "Texte",
   uploadAnother: "Déposer un autre",
   savedLocally: "Conservée seulement dans ce navigateur.",
+  language: "Langue",
+  primaryNav: "Principal",
+  documentTools: "Outils du document",
 };
 
 const ar: Record<keyof typeof en, string> = {
@@ -229,6 +235,9 @@ const ar: Record<keyof typeof en, string> = {
   text: "النص",
   uploadAnother: "ارفع ملفاً آخر",
   savedLocally: "يُحفظ في هذا المتصفح فقط.",
+  language: "اللغة",
+  primaryNav: "التنقل الرئيسي",
+  documentTools: "أدوات الوثيقة",
 };
 
 export const dictionaries = { en, fr, ar };

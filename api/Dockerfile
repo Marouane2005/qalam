@@ -35,14 +35,29 @@ COPY api/qalam ./qalam
 COPY api/alembic ./alembic
 COPY samples ./samples
 
-# Prefer the CPU wheel index so embeddings builds stay lean (no CUDA).
+# Install CPU torch first so sentence-transformers does not pull a CUDA wheel.
+# The pytorch CPU index publishes cp312 manylinux wheels for x86_64 and aarch64.
+# On aarch64, fall back to PyPI (also ships CPU aarch64 wheels) if needed.
 # Pass --build-arg QALAM_EXTRAS= for a slim image without sentence-transformers.
-RUN if [ -n "${QALAM_EXTRAS}" ]; then \
+RUN set -eux; \
+    if [ -z "${QALAM_EXTRAS}" ]; then \
+      pip install --no-cache-dir .; \
+    else \
+      arch="$(uname -m)"; \
+      if ! pip install --no-cache-dir \
+            --index-url https://download.pytorch.org/whl/cpu \
+            --extra-index-url https://pypi.org/simple \
+            torch; then \
+        if [ "$arch" = "aarch64" ] || [ "$arch" = "arm64" ]; then \
+          echo "pytorch CPU index missed aarch64; falling back to PyPI torch"; \
+          pip install --no-cache-dir torch; \
+        else \
+          exit 1; \
+        fi; \
+      fi; \
       pip install --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         ".[${QALAM_EXTRAS}]"; \
-    else \
-      pip install --no-cache-dir .; \
     fi
 
 # Bake weights into the image (as qalam). Runtime seeds the hf-cache volume from here.

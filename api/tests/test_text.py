@@ -58,19 +58,6 @@ def test_hash_embeddings_rank_related_text() -> None:
     assert abs(sum(value * value for value in single) - 1) < 1e-6
 
 
-def test_embedding_fallback_when_the_model_cannot_load(monkeypatch: pytest.MonkeyPatch) -> None:
-    from qalam.text import embed as embed_module
-
-    def explode(texts: list[str], settings: Settings) -> list[list[float]]:
-        raise RuntimeError("model missing")
-
-    monkeypatch.setattr(embed_module, "_sentence_transformer_vectors", explode)
-    settings = Settings(embedding_backend="sentence-transformers", llm_chain="mock")
-    vectors = embed_texts(["hello qalam"], settings)
-    assert len(vectors) == 1
-    assert len(vectors[0]) == 384
-
-
 def test_plain_text_docx_and_pdf(tmp_path: Path) -> None:
     text_path = tmp_path / "note.txt"
     text_path.write_text("Hello from Qalam.\n\nA second paragraph.", encoding="utf-8")

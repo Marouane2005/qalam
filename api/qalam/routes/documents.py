@@ -1,4 +1,5 @@
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from sqlalchemy import func, select
@@ -121,6 +122,15 @@ def reprocess(
     session: Session = Depends(get_session),
 ) -> Document:
     document = _require_document(session, principal, document_id)
+    if not Path(document.storage_path).exists():
+        # Hosts without a persistent disk drop uploads on restart. The text,
+        # chunks and summary live in the database, so keep the document as it
+        # is instead of letting a new run mark it failed.
+        raise AppError(
+            "source_missing",
+            "The original file is no longer stored. Upload it again to reprocess it.",
+            410,
+        )
     if not requeue_document(session, document):
         raise AppError("already_processing", "This document is already being processed.", 409)
     return _queue(request, session, document)

@@ -1,6 +1,7 @@
 import threading
 import uuid
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -115,3 +116,19 @@ def test_a_failed_summary_keeps_the_document_ready(
     assert body["summary_short"] is None
     summary = client.get(f"/v1/documents/{body['id']}/summary", headers=auth_header)
     assert summary.status_code == 409
+
+
+def test_reprocess_without_the_stored_file_keeps_the_document(
+    client: TestClient, auth_header: dict[str, str]
+) -> None:
+    document_id = _upload(client, auth_header, "The reading room reopens after the summer break.")
+    app: Any = client.app
+    with app.state.session_factory() as session:
+        document = session.get(Document, document_id)
+        assert document is not None
+        Path(document.storage_path).unlink()
+    response = client.post(f"/v1/documents/{document_id}/reprocess", headers=auth_header)
+    assert response.status_code == 410
+    assert response.json()["detail"]["code"] == "source_missing"
+    detail = client.get(f"/v1/documents/{document_id}", headers=auth_header)
+    assert detail.json()["status"] == "ready"

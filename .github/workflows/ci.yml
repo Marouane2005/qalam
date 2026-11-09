@@ -59,3 +59,18 @@ jobs:
         run: docker build -f api/Dockerfile -t qalam-api:ci .
       - name: Build the web image
         run: docker build -f web/Dockerfile -t qalam-web:ci web
+
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build the Render image
+        run: >
+          docker buildx build
+          --platform linux/amd64
+          -f deploy/render/Dockerfile
+          -t qalam-render:ci
+          --load
+          .

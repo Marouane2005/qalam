@@ -3,7 +3,7 @@
 # runs inside the upload request (QALAM_TASKS_EAGER=1), so there is no worker.
 # Postgres with pgvector is external and comes in through QALAM_DATABASE_URL.
 
-FROM node:22-bookworm-slim AS web
+FROM node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d AS web
 
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -14,9 +14,9 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build
 
-FROM node:22-bookworm-slim AS node
+FROM node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d AS node
 
-FROM python:3.12-slim-bookworm
+FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

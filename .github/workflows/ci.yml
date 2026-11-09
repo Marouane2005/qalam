@@ -56,6 +56,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build the API image
-        run: docker build -f api/Dockerfile -t qalam-api:ci .
+        run: docker build -f api/Dockerfile --build-arg QALAM_EXTRAS= -t qalam-api:ci .
       - name: Build the web image
         run: docker build -f web/Dockerfile -t qalam-web:ci web
+
+  # Native arm64 builds for Ampere / aarch64 hosts (public-repo free runners).
+  docker-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build slim API image
+        run: >
+          docker build -f api/Dockerfile
+          --build-arg QALAM_EXTRAS=
+          --build-arg QALAM_PRELOAD_EMBEDDING_MODEL=
+          -t qalam-api:ci-arm64-slim .
+      - name: Build embeddings API image (skip model preload)
+        run: >
+          docker build -f api/Dockerfile
+          --build-arg QALAM_PRELOAD_EMBEDDING_MODEL=
+          -t qalam-api:ci-arm64-embeddings .
+      - name: Smoke-import sentence-transformers on arm64
+        run: >
+          docker run --rm qalam-api:ci-arm64-embeddings
+          python -c "import torch; import sentence_transformers; print(torch.__version__, torch.cuda.is_available())"
+      - name: Build the web image
+        run: docker build -f web/Dockerfile -t qalam-web:ci-arm64 web

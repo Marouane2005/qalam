@@ -1,12 +1,15 @@
 FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
 
 ARG QALAM_EXTRAS=embeddings
-ARG QALAM_PRELOAD_EMBEDDING_MODEL=
+# Pre-download by default so ingest does not hit the hub at runtime.
+# Pass --build-arg QALAM_PRELOAD_EMBEDDING_MODEL= to skip.
+ARG QALAM_PRELOAD_EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     QALAM_STORAGE_DIR=/var/lib/qalam/uploads \
     QALAM_SAMPLES_DIR=/app/samples \
+    QALAM_HF_BAKE_CACHE=/opt/qalam/hf-cache \
     HF_HOME=/var/lib/qalam/hf-cache \
     TRANSFORMERS_CACHE=/var/lib/qalam/hf-cache \
     SENTENCE_TRANSFORMERS_HOME=/var/lib/qalam/hf-cache \
@@ -22,8 +25,8 @@ RUN apt-get update \
         gosu \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 10001 --shell /usr/sbin/nologin qalam \
-    && mkdir -p /var/lib/qalam/uploads /var/lib/qalam/hf-cache \
-    && chown -R qalam:qalam /var/lib/qalam
+    && mkdir -p /var/lib/qalam/uploads /var/lib/qalam/hf-cache /opt/qalam/hf-cache \
+    && chown -R qalam:qalam /var/lib/qalam /opt/qalam
 
 WORKDIR /app
 
@@ -42,10 +45,14 @@ RUN if [ -n "${QALAM_EXTRAS}" ]; then \
       pip install --no-cache-dir .; \
     fi
 
-# Optional: bake the embedding weights into the image (off by default).
-RUN if [ -n "${QALAM_PRELOAD_EMBEDDING_MODEL}" ]; then \
-      gosu qalam python -c \
-        "from sentence_transformers import SentenceTransformer; SentenceTransformer('${QALAM_PRELOAD_EMBEDDING_MODEL}')"; \
+# Bake weights into the image (as qalam). Runtime seeds the hf-cache volume from here.
+RUN if [ -n "${QALAM_EXTRAS}" ] && [ -n "${QALAM_PRELOAD_EMBEDDING_MODEL}" ]; then \
+      gosu qalam env \
+        HF_HOME=/opt/qalam/hf-cache \
+        TRANSFORMERS_CACHE=/opt/qalam/hf-cache \
+        SENTENCE_TRANSFORMERS_HOME=/opt/qalam/hf-cache \
+        HUGGINGFACE_HUB_CACHE=/opt/qalam/hf-cache \
+        python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('${QALAM_PRELOAD_EMBEDDING_MODEL}')"; \
     fi
 
 COPY api/entrypoint.sh /entrypoint.sh

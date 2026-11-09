@@ -1,0 +1,85 @@
+[project]
+name = "qalam"
+version = "0.1.0"
+description = "Self-hosted document intelligence for Arabic, French and English"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{ name = "Marouane El Aasri" }]
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "sqlalchemy>=2.0.36",
+  "alembic>=1.14",
+  "psycopg[binary]>=3.2",
+  "pgvector>=0.3.6",
+  "pydantic>=2.10",
+  "pydantic-settings>=2.6",
+  "python-multipart>=0.0.17",
+  "celery>=5.4",
+  "redis>=5.2",
+  "httpx>=0.28",
+  "pymupdf>=1.25",
+  "python-docx>=1.1",
+  "pytesseract>=0.3.13",
+  "Pillow>=11.0",
+  "langdetect>=1.0.9",
+  "prometheus-client>=0.21",
+  "jsonschema>=4.23",
+  "structlog>=24.4",
+]
+
+[project.optional-dependencies]
+embeddings = ["sentence-transformers>=3.3"]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "mypy>=1.13",
+  "ruff>=0.8",
+  "testcontainers[postgres]>=4.8",
+  "fakeredis>=2.26",
+  "types-jsonschema",
+]
+
+[tool.setuptools.packages.find]
+include = ["qalam*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+src = ["qalam", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["qalam"]
+
+[tool.ruff.lint.per-file-ignores]
+"qalam/routes/*" = ["B008"]
+"qalam/deps.py" = ["B008"]
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["qalam"]
+disallow_untyped_defs = true
+no_implicit_optional = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+ignore_missing_imports = true
+exclude = ["alembic", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "integration: needs Postgres with pgvector",
+]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["qalam"]
+omit = ["qalam/cli.py", "qalam/seed.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true

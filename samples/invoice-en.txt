@@ -1,0 +1,7 @@
+Invoice: INV-1042
+Date: 2026-03-02
+Seller: Northwind Studio
+Buyer: The Lantern Library
+Description: Typesetting of the spring programme, three days
+Total: 900.00 EUR
+Currency: EUR

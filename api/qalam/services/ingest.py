@@ -2,9 +2,10 @@ import re
 import shutil
 import time
 import uuid
+from datetime import timedelta
 from pathlib import Path
 
-from sqlalchemy import delete, select
+from sqlalchemy import ColumnElement, and_, delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from qalam.config import Settings
@@ -13,7 +14,7 @@ from qalam.llm.client import LLMClient
 from qalam.logging import get_logger
 from qalam.metrics import DOCUMENTS, INGEST_LATENCY
 from qalam.models import Chunk, Document, Translation, utcnow
-from qalam.services.reading import document_text, summarize_text
+from qalam.services.reading import Summary, document_text, summarize_text
 from qalam.services.usage import record_usage
 from qalam.text.chunk import chunk_pages
 from qalam.text.embed import embed_texts
@@ -101,6 +102,59 @@ def store_bytes(
     return document
 
 
+# A document stuck in "processing" this long is treated as abandoned, for example
+# after a worker crash, and can be claimed again.
+STALE_AFTER = timedelta(minutes=15)
+
+
+def _claimable(*statuses: str) -> ColumnElement[bool]:
+    stale = utcnow() - STALE_AFTER
+    return or_(
+        Document.status.in_(statuses),
+        and_(Document.status == "processing", Document.updated_at < stale),
+    )
+
+
+def claim_document(session: Session, document_id: uuid.UUID) -> Document | None:
+    """Atomically move a queued document to processing.
+
+    Returns the document when this caller won the claim, or None when it does not
+    exist or another run is already processing it. The conditional UPDATE makes
+    concurrent claims safe: Postgres re-checks the status after the row lock, so
+    only one caller sees a row come back.
+    """
+
+    claimed = session.execute(
+        update(Document)
+        .where(Document.id == document_id, _claimable("queued"))
+        .values(status="processing", error=None, updated_at=utcnow())
+        .returning(Document.id)
+    ).scalar_one_or_none()
+    session.commit()
+    if claimed is None:
+        return None
+    return session.get(Document, document_id, populate_existing=True)
+
+
+def requeue_document(session: Session, document: Document) -> bool:
+    """Mark a document queued for another run unless one is already in progress."""
+
+    requeued = session.execute(
+        update(Document)
+        .where(
+            Document.id == document.id,
+            _claimable("queued", "ready", "failed"),
+        )
+        .values(status="queued", error=None, updated_at=utcnow())
+        .returning(Document.id)
+    ).scalar_one_or_none()
+    session.commit()
+    if requeued is None:
+        return False
+    session.refresh(document)
+    return True
+
+
 def process_document(
     session: Session,
     document_id: uuid.UUID,
@@ -108,12 +162,12 @@ def process_document(
     llm: LLMClient,
 ) -> None:
     started = time.perf_counter()
-    document = session.scalar(select(Document).where(Document.id == document_id).with_for_update())
+    document = claim_document(session, document_id)
     if document is None:
+        log.info("ingest_skipped", document_id=str(document_id))
         return
-    document.status = "processing"
-    document.error = None
-    document.updated_at = utcnow()
+    # End the read transaction so no connection or row lock is held during extraction,
+    # embedding and the model call.
     session.commit()
     try:
         pages = extract_pages(Path(document.storage_path), document.media_type)
@@ -125,6 +179,9 @@ def process_document(
         if not drafts:
             raise IngestError("No text could be extracted from this file.")
         vectors = embed_texts([draft.text for draft in drafts], settings)
+        body = "\n\n".join(page.text.strip() for page in pages if page.text.strip())
+        language = detect_language(body)
+
         session.execute(delete(Chunk).where(Chunk.document_id == document.id))
         session.execute(delete(Translation).where(Translation.document_id == document.id))
         for draft, vector in zip(drafts, vectors, strict=True):
@@ -139,16 +196,29 @@ def process_document(
                     embedding=vector,
                 )
             )
-        body = "\n\n".join(page.text.strip() for page in pages if page.text.strip())
-        language = detect_language(body)
-        summary = summarize_text(body, language, llm, settings.llm_input_chars)
-        record_usage(session, document.workspace_id, "summarize", summary.completion)
         document.language = language
         document.page_count = max(page.number for page in pages)
         document.pages = [{"page": page.number, "text": page.text} for page in pages]
-        document.summary_short = summary.short
-        document.summary_detailed = summary.detailed
-        document.summary_provider = summary.provider
+        document.summary_short = None
+        document.summary_detailed = None
+        document.summary_provider = None
+        document.updated_at = utcnow()
+        session.commit()
+
+        # The summary runs outside any transaction. If it fails, the text and chunks
+        # are already saved and the document is still usable; the summary can be
+        # regenerated later.
+        summary: Summary | None
+        try:
+            summary = summarize_text(body, language, llm, settings.llm_input_chars)
+        except Exception as exc:
+            log.warning("summary_failed", document_id=str(document_id), error=type(exc).__name__)
+            summary = None
+        if summary is not None:
+            record_usage(session, document.workspace_id, "summarize", summary.completion)
+            document.summary_short = summary.short
+            document.summary_detailed = summary.detailed
+            document.summary_provider = summary.provider
         document.status = "ready"
         document.error = None
         document.updated_at = utcnow()

@@ -14,6 +14,7 @@ from qalam.services.ingest import (
     delete_document,
     load_workspace_document,
     process_document,
+    requeue_document,
     store_bytes,
 )
 
@@ -120,7 +121,6 @@ def reprocess(
     session: Session = Depends(get_session),
 ) -> Document:
     document = _require_document(session, principal, document_id)
-    document.status = "queued"
-    document.error = None
-    session.commit()
+    if not requeue_document(session, document):
+        raise AppError("already_processing", "This document is already being processed.", 409)
     return _queue(request, session, document)

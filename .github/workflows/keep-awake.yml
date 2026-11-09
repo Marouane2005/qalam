@@ -1,0 +1,29 @@
+name: keep-awake
+
+# Pings the free Render service so it does not sleep after 15 minutes idle.
+# Keeping one free service awake uses about 744 of Render's 750 free
+# instance hours per month. Disable this workflow to let it sleep again.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keep-awake
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      QALAM_URL: ${{ vars.QALAM_PUBLIC_URL || 'https://qalam-fun9.onrender.com' }}
+    steps:
+      - name: Ping /health
+        run: |
+          curl --fail --silent --show-error --retry 3 --retry-delay 20 \
+            --max-time 90 -o /dev/null -w "status %{http_code} in %{time_total}s\n" \
+            "$QALAM_URL/health"

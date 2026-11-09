@@ -33,6 +33,19 @@ def seed() -> None:
         seed_if_empty(session, settings, llm, force=True)
 
 
+def reindex() -> None:
+    from qalam.db import session_factory
+    from qalam.migrate import migrate_with_retry
+    from qalam.services.ingest import reindex_embeddings
+
+    settings = get_settings()
+    configure_logging(settings.log_level)
+    migrate_with_retry(settings.database_url)
+    with session_factory(settings)() as session:
+        count = reindex_embeddings(session, settings)
+    print(f"Re-embedded {count} chunks with the {settings.embedding_backend} backend.")
+
+
 def main() -> None:
     command = sys.argv[1] if len(sys.argv) > 1 else "serve"
     if command == "serve":
@@ -41,6 +54,8 @@ def main() -> None:
         worker()
     elif command == "seed":
         seed()
+    elif command == "reindex":
+        reindex()
     else:
         raise SystemExit(f"Unknown command: {command}")
 

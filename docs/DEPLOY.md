@@ -76,6 +76,25 @@ to `1`:
 command: ["celery", "-A", "qalam.worker:celery_app", "worker", "--loglevel=INFO", "--concurrency=1"]
 ```
 
+
+## Switching from the slim image to embeddings
+
+If the database was populated while running the slim API image (hash vectors)
+and you later build with `QALAM_EXTRAS=embeddings` (and
+`QALAM_EMBEDDING_BACKEND=sentence-transformers`), every existing document must
+be reprocessed. Old chunks stay in hash vector space otherwise, and Q&A returns
+junk against the new model.
+
+After rebuilding and restarting with the embeddings image:
+
+```sh
+docker compose exec api qalam reindex
+```
+
+That `reindex` command is being added by the backend owner in a separate PR.
+Until it lands on the deployed SHA, reprocess each document through the
+`/reprocess` API endpoint (or the UI equivalent) as a fallback.
+
 ## Behind a platform HTTPS proxy
 
 Some hosts terminate TLS for you and forward plain HTTP to one published

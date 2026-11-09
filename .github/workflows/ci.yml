@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install OCR languages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra tesseract-ocr-ara fonts-dejavu-core
+      - name: Install Qalam
+        run: pip install -e "./api[dev]"
+      - name: Ruff
+        working-directory: api
+        run: ruff check .
+      - name: Mypy
+        working-directory: api
+        run: mypy --package qalam
+      - name: Pytest
+        working-directory: api
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: pytest --cov=qalam --cov-report=term-missing --cov-fail-under=75
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the API image
+        run: docker build -f api/Dockerfile -t qalam-api:ci .
+      - name: Build the web image
+        run: docker build -f web/Dockerfile -t qalam-web:ci web

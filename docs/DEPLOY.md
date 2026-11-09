@@ -83,8 +83,9 @@ container port. In that case Caddy should **not** request certificates.
 
 1. Set `QALAM_SITE_ADDRESS=:80` so Caddy listens for plain HTTP on port 80
    (this is already the default in `.env.example` and compose).
-2. Publish **only** Caddy’s HTTP port (compose maps `80:80`). You do not need
-   to expose 443 when the platform handles HTTPS.
+2. Publish **only** Caddy’s HTTP port through the platform (container port 80).
+   Compose also maps 443 for direct-TLS setups; that mapping can stay unused
+   when the platform terminates HTTPS for you.
 3. Set `QALAM_CORS_ORIGINS` to the platform’s public HTTPS URL, for example
    `https://my-app.example-host.com`.
 4. Keep provider keys and `QALAM_BOOTSTRAP_API_KEY` in `.env` on the VM; do not

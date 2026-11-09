@@ -1,6 +1,0 @@
-# Optional override when TLS is terminated in front of Qalam.
-# Usage: docker compose -f docker-compose.yml -f deploy/compose.http-only.yml up -d
-services:
-  caddy:
-    ports: !override
-      - "80:80"

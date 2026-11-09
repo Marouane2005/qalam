@@ -267,3 +267,31 @@ def load_workspace_document(
 
 def joined_text(document: Document, limit: int) -> str:
     return document_text(document)[:limit]
+
+
+def reindex_embeddings(session: Session, settings: Settings, *, batch_size: int = 128) -> int:
+    """Re-embed every stored chunk with the configured embedding backend.
+
+    Run this after changing the embedding backend or model, so stored vectors and
+    query vectors come from the same embedder. It reuses the stored chunk text, so
+    it needs no file extraction and no model calls for summaries. Returns the number
+    of chunks updated.
+    """
+
+    updated = 0
+    last_id: uuid.UUID | None = None
+    while True:
+        query = select(Chunk.id, Chunk.text).order_by(Chunk.id).limit(batch_size)
+        if last_id is not None:
+            query = query.where(Chunk.id > last_id)
+        rows = session.execute(query).all()
+        if not rows:
+            break
+        vectors = embed_texts([row.text for row in rows], settings)
+        for row, vector in zip(rows, vectors, strict=True):
+            session.execute(update(Chunk).where(Chunk.id == row.id).values(embedding=vector))
+        session.commit()
+        updated += len(rows)
+        last_id = rows[-1].id
+        log.info("reindex_progress", chunks=updated)
+    return updated

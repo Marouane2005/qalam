@@ -56,6 +56,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build the API image
-        run: docker build -f api/Dockerfile -t qalam-api:ci .
+        run: docker build -f api/Dockerfile --build-arg QALAM_EXTRAS= -t qalam-api:ci .
       - name: Build the web image
         run: docker build -f web/Dockerfile -t qalam-web:ci web

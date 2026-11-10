@@ -8,6 +8,12 @@ from sqlalchemy.orm import Session
 
 from qalam.models import ApiKey, Membership, User, Workspace, utcnow
 
+GUEST_EMAIL_SUFFIX = "@guest.qalam.invalid"
+
+
+def is_guest(user: User) -> bool:
+    return user.email.endswith(GUEST_EMAIL_SUFFIX)
+
 
 def hash_key(raw: str) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -141,3 +147,20 @@ def new_workspace_for(session: Session, owner: User, name: str) -> tuple[Workspa
     _record, raw = issue_key(session, user=owner, workspace=workspace, name=f"{name} key")
     session.commit()
     return workspace, raw
+
+
+def create_guest(session: Session) -> tuple[User, Workspace, str]:
+    """Create a private guest user, workspace, membership and API key."""
+    user = User(
+        email=f"guest-{uuid.uuid4().hex}{GUEST_EMAIL_SUFFIX}",
+        name="Guest",
+    )
+    session.add(user)
+    session.flush()
+    workspace = Workspace(name="My library", owner_id=user.id)
+    session.add(workspace)
+    session.flush()
+    session.add(Membership(user_id=user.id, workspace_id=workspace.id, role="owner"))
+    _record, raw = issue_key(session, user=user, workspace=workspace, name="guest key")
+    session.commit()
+    return user, workspace, raw

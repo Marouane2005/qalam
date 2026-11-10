@@ -39,6 +39,12 @@ class WorkspaceCreated(BaseModel):
     api_key: str
 
 
+class GuestCreated(BaseModel):
+    api_key: str
+    workspace: WorkspaceOut
+    user: UserOut
+
+
 class UserCreate(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     name: str = Field(min_length=1, max_length=200)

@@ -122,7 +122,7 @@ curl -s http://localhost/v1/extract \
 
 Uploads return immediately with `status: queued` unless eager mode is on. Poll `GET /v1/documents/{id}` until `ready` or `failed`.
 
-Other routes worth knowing: `POST /v1/workspaces` creates a workspace and returns a new key, `POST /v1/users` invites someone into the current workspace, `GET /v1/usage` sums tokens and latency for the workspace. Owners can invite. Members can read and upload. A key only sees its own workspace.
+Other routes worth knowing: `POST /v1/guest` (when `QALAM_GUEST_ACCESS` is on) creates a private guest library and returns an API key with no prior key required, `POST /v1/workspaces` creates a workspace and returns a new key, `POST /v1/users` invites someone into the current workspace, `GET /v1/usage` sums tokens and latency for the workspace. Owners can invite. Members can read and upload. A key only sees its own workspace.
 
 ## Configuration
 
@@ -139,6 +139,11 @@ Everything is an environment variable. `.env.example` lists them. Compose overri
 | `QALAM_LLM_BREAKER_THRESHOLD` | Failures before a provider is skipped for `QALAM_LLM_BREAKER_COOLDOWN_S` seconds. |
 | `QALAM_EMBEDDING_BACKEND` | `sentence-transformers` or `hash`. |
 | `QALAM_RATE_LIMIT_PER_MINUTE` | Requests per API key. Redis down fails open and is logged. |
+| `QALAM_GUEST_ACCESS` | When true, `POST /v1/guest` issues a private guest library with no bootstrap key. Off by default. |
+| `QALAM_GUEST_SIGNUPS_PER_MINUTE` | Per-IP cap on guest signups. Default 5. |
+| `QALAM_GUEST_SIGNUPS_PER_MINUTE_TOTAL` | Global cap on guest signups across all IPs. Default 30. |
+| `QALAM_GUEST_DAILY_UPLOADS` | Per-guest-library uploads in a rolling 24h window. `<=0` disables. Default 20. |
+| `QALAM_TRUSTED_PROXY_HOPS` | How many trailing `X-Forwarded-For` hops to trust. `0` ignores XFF and uses the peer. Default 0. |
 | `QALAM_SITE_ADDRESS` | Caddy site address. `:80` is plain HTTP. A hostname turns on automatic HTTPS. |
 | `QALAM_TASKS_EAGER` | Run ingestion in the API process. Useful in tests. |
 

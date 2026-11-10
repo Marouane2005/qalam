@@ -1,6 +1,7 @@
 from fakeredis import FakeRedis
 
-from qalam.auth import generate_api_key, hash_key, key_prefix
+from qalam.auth import GUEST_EMAIL_SUFFIX, generate_api_key, hash_key, is_guest, key_prefix
+from qalam.models import User
 from qalam.ratelimit import RateLimiter
 
 
@@ -34,3 +35,8 @@ def test_rate_limiter_fails_open_when_redis_errors() -> None:
     allowed, remaining = RateLimiter(Broken(), limit=5).hit("key")
     assert allowed is True
     assert remaining == 5
+
+
+def test_is_guest_helper() -> None:
+    assert is_guest(User(email=f"guest-abc{GUEST_EMAIL_SUFFIX}", name="Guest")) is True
+    assert is_guest(User(email="admin@example.com", name="Admin")) is False

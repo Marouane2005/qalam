@@ -1,4 +1,5 @@
 import json
+import uuid
 import logging
 
 import httpx
@@ -12,7 +13,7 @@ from qalam.llm.parsing import parse_model_json
 from qalam.llm.providers import OpenAICompatibleProvider
 from qalam.llm.types import Completion, LLMUnavailable, Message, ProviderError
 from qalam.logging import configure_logging, redact, sanitize
-from qalam.services.reading import extract_fields, summarize_text, translate_text, translation_max_tokens
+from qalam.services.reading import Hit, answer_question, extract_fields, response_language, summarize_text, translate_text, translation_max_tokens
 
 
 class Scripted:
@@ -279,3 +280,46 @@ def test_provider_retries_empty_completion_text() -> None:
     result = provider.complete([Message("user", "hi")], max_tokens=16, temperature=0.7)
     assert result.text == "ok"
     assert calls["n"] == 2
+
+def test_response_language_maps_supported_scripts() -> None:
+    assert response_language("How much is the total?")[0] == "en"
+    assert response_language("Quel est le montant total ?")[0] == "fr"
+    assert response_language("ما هو المبلغ الإجمالي؟")[0] == "ar"
+
+
+def test_answer_question_prompts_match_question_language() -> None:
+    captured: list[list[Message]] = []
+
+    class Capture:
+        name = "capture"
+        model = "capture"
+
+        def complete(self, messages: list[Message], *, max_tokens: int, temperature: float) -> Completion:
+            captured.append(list(messages))
+            assert temperature <= 0.3
+            return _completion('{"answer": "1140 MAD", "citation_indexes": [0]}')
+
+    hits = [
+        Hit(
+            chunk_id=uuid.uuid4(),
+            document_id=uuid.uuid4(),
+            filename="invoice.txt",
+            page=1,
+            text="Total due: 1140 MAD",
+        )
+    ]
+    client = LLMClient([Capture()], threshold=2, cooldown_s=5)  # type: ignore[list-item]
+    result = answer_question("How much money does it need in total?", hits, client)
+    assert result.answer == "1140 MAD"
+    system = captured[0][0].content
+    user = captured[0][1].content
+    assert "Answer in the same language as the question" in system
+    assert "Language: en (English)" in user
+    assert "Write the answer in English." in user
+
+    captured.clear()
+    answer_question("ما هو المبلغ الإجمالي المطلوب؟", hits, client)
+    user_ar = captured[0][1].content
+    assert "Language: ar (Arabic)" in user_ar
+    assert "Write the answer in Arabic." in user_ar
+

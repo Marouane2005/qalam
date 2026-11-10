@@ -127,6 +127,17 @@ class TranslationResult:
     completion: Completion
 
 
+def translation_max_tokens(paragraphs: list[str]) -> int:
+    """Budget for JSON translation replies.
+
+    Target languages such as Arabic often expand the source, and some free
+    providers also spend completion tokens on hidden reasoning. The previous
+    floor of 400 truncated real Arabic JSON mid-string.
+    """
+    chars = sum(len(item) for item in paragraphs)
+    return max(1600, min(4000, chars * 2 + 800))
+
+
 def translate_text(text: str, target: str, llm: LLMClient, limit: int) -> TranslationResult:
     paragraphs = split_paragraphs(clip(text, limit))
     if not paragraphs:
@@ -141,7 +152,7 @@ def translate_text(text: str, target: str, llm: LLMClient, limit: int) -> Transl
             ),
         ],
         operation="translate",
-        max_tokens=max(400, min(4000, sum(len(item) for item in paragraphs) // 2 + 200)),
+        max_tokens=translation_max_tokens(paragraphs),
     )
     if not isinstance(data, dict) or not isinstance(data.get("paragraphs"), list):
         raise ModelOutputError("Translation did not include a paragraphs array.")
@@ -228,7 +239,7 @@ def answer_question(question: str, hits: list[Hit], llm: LLMClient) -> Answer:
             ),
         ],
         operation="qa",
-        max_tokens=800,
+        max_tokens=1200,
     )
     if not isinstance(data, dict):
         raise ModelOutputError("Answer was not a JSON object.")

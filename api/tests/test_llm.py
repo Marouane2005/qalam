@@ -244,7 +244,38 @@ def test_extraction_retries_invalid_schema_output() -> None:
 
 def test_translation_max_tokens_leaves_room_for_expansion() -> None:
     short = ["Total due: 1140 MAD"]
-    assert translation_max_tokens(short) >= 1600
-    long = ["x" * 2000]
-    assert translation_max_tokens(long) == 4000
+    assert translation_max_tokens(short) >= 3000
+    medium = ["x" * 400]
+    assert translation_max_tokens(medium) >= 2700
+    long = ["x" * 3000]
+    assert translation_max_tokens(long) == 8000
 
+def test_provider_retries_empty_completion_text() -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(200, json={"choices": [{"message": {"content": None}}], "model": "m"})
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "ok"}}],
+                "model": "m",
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+            },
+        )
+
+    provider = OpenAICompatibleProvider(
+        "inception",
+        base_url="https://api.inceptionlabs.ai/v1",
+        api_key="sk-test",
+        model="mercury-3",
+        timeout_s=5,
+        retries=1,
+        backoff_s=0,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    result = provider.complete([Message("user", "hi")], max_tokens=16, temperature=0.7)
+    assert result.text == "ok"
+    assert calls["n"] == 2

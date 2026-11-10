@@ -56,12 +56,23 @@ def _complete_json(
 ) -> tuple[Any, Completion]:
     conversation = list(messages)
     last_error = "invalid JSON"
-    for _attempt in range(2):
+    for _attempt in range(3):
         completion = llm.complete(
             conversation,
             max_tokens=max_tokens,
             operation=operation,
         )
+        if not (completion.text or "").strip():
+            last_error = "empty model output"
+            conversation = [
+                *conversation,
+                Message("assistant", completion.text or ""),
+                Message(
+                    "user",
+                    "Your previous reply was empty. Reply with a single JSON value and nothing else.",
+                ),
+            ]
+            continue
         try:
             return parse_model_json(completion.text), completion
         except (json.JSONDecodeError, ValueError) as exc:
@@ -131,11 +142,12 @@ def translation_max_tokens(paragraphs: list[str]) -> int:
     """Budget for JSON translation replies.
 
     Target languages such as Arabic often expand the source, and some free
-    providers also spend completion tokens on hidden reasoning. The previous
-    floor of 400 truncated real Arabic JSON mid-string.
+    providers also spend completion tokens on hidden reasoning. A 4000-token
+    ceiling was still too low for longer Arabic letters on mercury-3, which
+    can burn thousands of reasoning tokens before emitting JSON.
     """
     chars = sum(len(item) for item in paragraphs)
-    return max(1600, min(4000, chars * 2 + 800))
+    return max(3000, min(8000, chars * 3 + 1500))
 
 
 def translate_text(text: str, target: str, llm: LLMClient, limit: int) -> TranslationResult:
@@ -239,7 +251,7 @@ def answer_question(question: str, hits: list[Hit], llm: LLMClient) -> Answer:
             ),
         ],
         operation="qa",
-        max_tokens=1200,
+        max_tokens=2000,
     )
     if not isinstance(data, dict):
         raise ModelOutputError("Answer was not a JSON object.")

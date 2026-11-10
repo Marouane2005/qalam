@@ -77,9 +77,15 @@ class OpenAICompatibleProvider:
                         retryable=False,
                     )
                 else:
-                    return self._parse(response, messages, (time.perf_counter() - started) * 1000)
-            if attempt < self.retries and self.backoff_s:
-                time.sleep(self.backoff_s * (2**attempt))
+                    try:
+                        return self._parse(response, messages, (time.perf_counter() - started) * 1000)
+                    except ProviderError as exc:
+                        if not exc.retryable:
+                            raise
+                        last = exc
+            if attempt < self.retries and (self.backoff_s or last is not None):
+                if self.backoff_s:
+                    time.sleep(self.backoff_s * (2**attempt))
         if last is None:
             raise ProviderError(self.name, "no response", retryable=True)
         raise last
@@ -90,9 +96,13 @@ class OpenAICompatibleProvider:
         except json.JSONDecodeError:
             raise ProviderError(self.name, "invalid JSON response") from None
         try:
-            text = data["choices"][0]["message"]["content"] or ""
-        except (KeyError, IndexError, TypeError):
+            message = data["choices"][0]["message"]
+            text = message.get("content") if isinstance(message, dict) else None
+            text = "" if text is None else str(text)
+        except (KeyError, IndexError, TypeError, AttributeError):
             raise ProviderError(self.name, "missing completion text") from None
+        if not text.strip():
+            raise ProviderError(self.name, "empty completion text", retryable=True)
         usage = data.get("usage") if isinstance(data, dict) else None
         if not isinstance(usage, dict):
             usage = {}

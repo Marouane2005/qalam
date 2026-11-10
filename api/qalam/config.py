@@ -77,7 +77,7 @@ class Settings(BaseSettings):
         validation_alias="NVIDIA_BASE_URL",
     )
     nvidia_model: str = Field(
-        default="meta/llama-3.3-70b-instruct",
+        default="nvidia/llama-3.1-nemotron-70b-instruct",
         validation_alias="NVIDIA_MODEL",
     )
     nvidia_timeout_s: float | None = Field(default=None, validation_alias="NVIDIA_TIMEOUT_S")

@@ -12,7 +12,7 @@ from qalam.llm.parsing import parse_model_json
 from qalam.llm.providers import OpenAICompatibleProvider
 from qalam.llm.types import Completion, LLMUnavailable, Message, ProviderError
 from qalam.logging import configure_logging, redact, sanitize
-from qalam.services.reading import extract_fields, summarize_text, translate_text
+from qalam.services.reading import extract_fields, summarize_text, translate_text, translation_max_tokens
 
 
 class Scripted:
@@ -240,3 +240,11 @@ def test_extraction_retries_invalid_schema_output() -> None:
     result, _completion_done = extract_fields("Invoice: INV-9", schema, client, 1000)
     assert result["invoice_number"] == "INV-9"
     assert scripted.calls == 2
+
+
+def test_translation_max_tokens_leaves_room_for_expansion() -> None:
+    short = ["Total due: 1140 MAD"]
+    assert translation_max_tokens(short) >= 1600
+    long = ["x" * 2000]
+    assert translation_max_tokens(long) == 4000
+

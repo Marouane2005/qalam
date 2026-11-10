@@ -12,14 +12,13 @@ pytestmark = pytest.mark.integration
 
 
 def _guest_client(database_url: str, storage: Path, **overrides: object) -> TestClient:
-    settings = make_settings(
-        database_url,
-        storage,
-        guest_access=True,
-        guest_signups_per_minute=1000,
-        guest_daily_uploads=20,
-        **overrides,
-    )
+    values: dict[str, object] = {
+        "guest_access": True,
+        "guest_signups_per_minute": 1000,
+        "guest_daily_uploads": 20,
+    }
+    values.update(overrides)
+    settings = make_settings(database_url, storage, **values)
     app = create_app(settings, redis_client=FakeRedis(decode_responses=True))
     return TestClient(app)
 

@@ -6,7 +6,7 @@ import pytest
 
 from qalam.errors import ModelOutputError
 from qalam.llm.types import Completion, Message
-from qalam.services.reading import Hit, answer_language, answer_question
+from qalam.services.reading import Hit, answer_language, answer_question, translate_text
 
 
 class Replies:
@@ -47,3 +47,26 @@ def test_two_drifted_replies_raise() -> None:
     llm = Replies(["图书馆周日中午关门。", "周日中午。"])
     with pytest.raises(ModelOutputError):
         answer_question("When does the library close on Sunday?", HITS, llm)  # type: ignore[arg-type]
+
+
+def test_translate_prompt_names_the_target_language() -> None:
+    class Capture:
+        def __init__(self) -> None:
+            self.prompts: list[list[Message]] = []
+
+        def complete(self, messages: list[Message], **_kwargs: Any) -> Completion:
+            self.prompts.append(list(messages))
+            return Completion(
+                text='{"paragraphs": ["Bonjour."]}',
+                provider="fake",
+                model="fake",
+                latency_ms=1,
+                prompt_tokens=1,
+                completion_tokens=1,
+            )
+
+    llm = Capture()
+    translate_text("Hello.", "fr", llm, 1000)  # type: ignore[arg-type]
+    user = llm.prompts[0][1].content
+    assert "Target: fr (French)" in user
+    assert "Write every paragraph in French." in user

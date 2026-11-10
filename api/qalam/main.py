@@ -20,7 +20,7 @@ from qalam.llm.types import LLMUnavailable
 from qalam.logging import configure_logging, get_logger
 from qalam.metrics import HTTP_LATENCY, HTTP_REQUESTS
 from qalam.migrate import migrate_with_retry
-from qalam.routes import documents, meta, reading, workspaces
+from qalam.routes import documents, guest, meta, reading, workspaces
 
 log = get_logger("qalam.api")
 
@@ -99,6 +99,7 @@ def create_app(settings: Settings | None = None, redis_client: Any = None) -> Fa
         )
     app.include_router(meta.router)
     app.include_router(workspaces.router)
+    app.include_router(guest.router)
     app.include_router(documents.router)
     app.include_router(reading.router)
 

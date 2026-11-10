@@ -1,14 +1,15 @@
 import uuid
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from qalam.auth import Principal
+from qalam.auth import Principal, is_guest
 from qalam.deps import get_principal, get_session
 from qalam.errors import AppError
 from qalam.logging import get_logger
-from qalam.models import Document
+from qalam.models import Document, utcnow
 from qalam.schemas import DocumentDetail, DocumentList, DocumentOut, DocumentText, PageOut
 from qalam.services.ingest import (
     delete_document,
@@ -47,6 +48,29 @@ def _queue(request: Request, session: Session, document: Document) -> Document:
     return document
 
 
+def _enforce_guest_upload_cap(session: Session, principal: Principal, cap: int) -> None:
+    if cap <= 0 or not is_guest(principal.user):
+        return
+    since = utcnow() - timedelta(hours=24)
+    count = (
+        session.scalar(
+            select(func.count())
+            .select_from(Document)
+            .where(
+                Document.workspace_id == principal.workspace.id,
+                Document.created_at >= since,
+            )
+        )
+        or 0
+    )
+    if int(count) >= cap:
+        raise AppError(
+            "upload_limit",
+            "This library has reached today's upload limit. Try again tomorrow.",
+            429,
+        )
+
+
 @router.post("/documents", response_model=DocumentDetail, status_code=201)
 def upload_document(
     request: Request,
@@ -54,6 +78,7 @@ def upload_document(
     principal: Principal = Depends(get_principal),
     session: Session = Depends(get_session),
 ) -> Document:
+    _enforce_guest_upload_cap(session, principal, request.app.state.settings.guest_daily_uploads)
     data = file.file.read(request.app.state.settings.max_upload_bytes + 1)
     document = store_bytes(
         session,

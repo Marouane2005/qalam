@@ -141,7 +141,9 @@ Everything is an environment variable. `.env.example` lists them. Compose overri
 | `QALAM_RATE_LIMIT_PER_MINUTE` | Requests per API key. Redis down fails open and is logged. |
 | `QALAM_GUEST_ACCESS` | When true, `POST /v1/guest` issues a private guest library with no bootstrap key. Off by default. |
 | `QALAM_GUEST_SIGNUPS_PER_MINUTE` | Per-IP cap on guest signups. Default 5. |
+| `QALAM_GUEST_SIGNUPS_PER_MINUTE_TOTAL` | Global cap on guest signups across all IPs. Default 30. |
 | `QALAM_GUEST_DAILY_UPLOADS` | Per-guest-library uploads in a rolling 24h window. `<=0` disables. Default 20. |
+| `QALAM_TRUSTED_PROXY_HOPS` | How many trailing `X-Forwarded-For` hops to trust. `0` ignores XFF and uses the peer. Default 0. |
 | `QALAM_SITE_ADDRESS` | Caddy site address. `:80` is plain HTTP. A hostname turns on automatic HTTPS. |
 | `QALAM_TASKS_EAGER` | Run ingestion in the API process. Useful in tests. |
 

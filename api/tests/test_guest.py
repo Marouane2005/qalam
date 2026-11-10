@@ -15,7 +15,9 @@ def _guest_client(database_url: str, storage: Path, **overrides: object) -> Test
     values: dict[str, object] = {
         "guest_access": True,
         "guest_signups_per_minute": 1000,
+        "guest_signups_per_minute_total": 1000,
         "guest_daily_uploads": 20,
+        "trusted_proxy_hops": 0,
     }
     values.update(overrides)
     settings = make_settings(database_url, storage, **values)
@@ -119,3 +121,41 @@ def test_guest_daily_upload_cap(database_url: str, storage: Path) -> None:
                 },
             )
             assert response.status_code == 201, response.text
+
+
+def test_guest_signup_global_rate_limit(database_url: str, storage: Path) -> None:
+    with _guest_client(
+        database_url,
+        storage,
+        guest_signups_per_minute=1000,
+        guest_signups_per_minute_total=2,
+    ) as client:
+        assert client.post("/v1/guest").status_code == 201
+        assert client.post("/v1/guest").status_code == 201
+        blocked = client.post("/v1/guest")
+        assert blocked.status_code == 429
+        assert blocked.json()["detail"]["code"] == "rate_limited"
+
+
+def test_guest_signup_ignores_spoofed_xff_when_hops_zero(database_url: str, storage: Path) -> None:
+    with _guest_client(database_url, storage, guest_signups_per_minute=2) as client:
+        assert client.post("/v1/guest", headers={"X-Forwarded-For": "1.1.1.1"}).status_code == 201
+        assert client.post("/v1/guest", headers={"X-Forwarded-For": "2.2.2.2"}).status_code == 201
+        blocked = client.post("/v1/guest", headers={"X-Forwarded-For": "3.3.3.3"})
+        assert blocked.status_code == 429
+        assert blocked.json()["detail"]["code"] == "rate_limited"
+
+
+def test_guest_signup_uses_trusted_xff_hop(database_url: str, storage: Path) -> None:
+    with _guest_client(
+        database_url,
+        storage,
+        guest_signups_per_minute=1,
+        trusted_proxy_hops=1,
+    ) as client:
+        first = client.post("/v1/guest", headers={"X-Forwarded-For": "spoofed, 203.0.113.10"})
+        assert first.status_code == 201
+        same = client.post("/v1/guest", headers={"X-Forwarded-For": "other-spoof, 203.0.113.10"})
+        assert same.status_code == 429
+        other = client.post("/v1/guest", headers={"X-Forwarded-For": "spoofed, 198.51.100.20"})
+        assert other.status_code == 201

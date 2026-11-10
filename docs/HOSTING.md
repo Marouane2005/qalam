@@ -26,8 +26,10 @@ sentence-transformers model.
 - Uploads are capped at 5 MB here (`QALAM_MAX_UPLOAD_BYTES`), because OCR of a
   large scan in the request can exceed the free memory.
 - Guest access is on (`QALAM_GUEST_ACCESS=1`). Visitors get a private library
-  via `POST /v1/guest`, limited to 3 signups per IP per minute and 20 uploads
-  per guest library per day.
+  via `POST /v1/guest`, limited to 3 signups per IP per minute, 30 signups
+  globally per minute, and 20 uploads per guest library per day.
+  `QALAM_TRUSTED_PROXY_HOPS=1` so Render's proxy hop is trusted when reading
+  `X-Forwarded-For`.
 
 ## Set up
 

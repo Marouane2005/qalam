@@ -30,8 +30,12 @@ services:
         value: "1"
       - key: QALAM_GUEST_SIGNUPS_PER_MINUTE
         value: "3"
+      - key: QALAM_GUEST_SIGNUPS_PER_MINUTE_TOTAL
+        value: "30"
       - key: QALAM_GUEST_DAILY_UPLOADS
         value: "20"
+      - key: QALAM_TRUSTED_PROXY_HOPS
+        value: "1"
       - key: QALAM_LLM_CHAIN
         value: inception,nvidia,openrouter,mock
       - key: INCEPTION_API_KEY

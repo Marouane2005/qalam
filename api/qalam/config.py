@@ -33,7 +33,11 @@ class Settings(BaseSettings):
     seed_demo: bool = Field(default=False, validation_alias="QALAM_SEED_DEMO")
     guest_access: bool = Field(default=False, validation_alias="QALAM_GUEST_ACCESS")
     guest_signups_per_minute: int = Field(default=5, validation_alias="QALAM_GUEST_SIGNUPS_PER_MINUTE")
+    guest_signups_per_minute_total: int = Field(
+        default=30, validation_alias="QALAM_GUEST_SIGNUPS_PER_MINUTE_TOTAL"
+    )
     guest_daily_uploads: int = Field(default=20, validation_alias="QALAM_GUEST_DAILY_UPLOADS")
+    trusted_proxy_hops: int = Field(default=0, validation_alias="QALAM_TRUSTED_PROXY_HOPS")
 
     bootstrap_email: str = Field(default="", validation_alias="QALAM_BOOTSTRAP_EMAIL")
     bootstrap_name: str = Field(default="Admin", validation_alias="QALAM_BOOTSTRAP_NAME")

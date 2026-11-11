@@ -278,18 +278,23 @@ export default function DocumentPage() {
                       {item.answer}
                     </p>
                     {item.citations.length ? (
-                      <ul className="mt-2 grid gap-2">
-                        {item.citations.map((citation) => (
-                          <li key={citation.chunk_id}>
-                            <a href={`#page-${citation.page}`} className="text-sm text-tide">
-                              {citation.filename} · {label("page")} {citation.page}
-                            </a>
-                            <blockquote dir="auto" className="mt-1 border-s-2 border-line ps-3 text-sm text-moss">
-                              {citation.quote}
-                            </blockquote>
-                          </li>
-                        ))}
-                      </ul>
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-sm text-tide underline-offset-2 hover:underline">
+                          {label("sources")} ({item.citations.length})
+                        </summary>
+                        <ul className="mt-2 grid gap-2">
+                          {item.citations.map((citation) => (
+                            <li key={citation.chunk_id}>
+                              <a href={`#page-${citation.page}`} className="text-sm text-tide">
+                                {citation.filename} · {label("page")} {citation.page}
+                              </a>
+                              <blockquote dir="auto" className="mt-1 border-s-2 border-line ps-3 text-sm text-moss">
+                                {citation.quote}
+                              </blockquote>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
                     ) : null}
                   </li>
                 ))}
